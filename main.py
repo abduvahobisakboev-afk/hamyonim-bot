@@ -35,9 +35,9 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 # 1. TIZIM VA LOGGING SOZLAMALARI
 # ==============================================================================
 
-BOT_TOKEN = "8888847127:AAHJwLGdphr3JLEaGMreFAuCnNCQ1Zlp_LU"
+BOT_TOKEN = "8888847127:AAG4D9TC2tPwuXHJ_Cp-xKIzmsnF9OVcfXs"
 ADMIN_ID = 1673990832
-DB_PATH = "bank_bot_v3.db"  # Yangi baza nomi (Eski xatoliklar to'liq yo'qolishi uchun)
+DB_PATH = "bank_bot_v3.db"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,14 +69,10 @@ def get_db_connection() -> Tuple[sqlite3.Connection, sqlite3.Cursor]:
 
 
 def init_db() -> None:
-    """
-    Baza va jadvallarni yaratadi, agar eski baza bo'lsa yetishmayotgan ustunlarni
-    avtomatik ravishda qo'shadi (Migration).
-    """
+    """Baza va jadvallarni yaratadi."""
     try:
         conn, cursor = get_db_connection()
         
-        # 1. Users jadvali
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -87,7 +83,6 @@ def init_db() -> None:
         )
         """)
 
-        # 2. Cards jadvali
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS my_cards (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,7 +95,6 @@ def init_db() -> None:
         )
         """)
 
-        # 3. Transactions jadvali
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,13 +106,11 @@ def init_db() -> None:
         )
         """)
 
-        # AVTO-MIGRATION: Ustunlar mavjudligini tekshirish va qo'shish
         cursor.execute("PRAGMA table_info(my_cards);")
         columns = [column[1] for column in cursor.fetchall()]
         
         if "card_type" not in columns:
             cursor.execute("ALTER TABLE my_cards ADD COLUMN card_type TEXT DEFAULT '🔹 Uzcard';")
-            logger.info("my_cards jadvaliga 'card_type' ustuni muvaffaqiyatli qo'shildi.")
 
         conn.commit()
         conn.close()
@@ -127,7 +119,6 @@ def init_db() -> None:
         logger.error(f"Baza sozlashda xatolik: {e}")
 
 
-# Baza jadvallarini dastur boshlanishida sozlash
 init_db()
 
 
@@ -240,7 +231,7 @@ class AdminBroadcastState(StatesGroup):
 
 
 # ==============================================================================
-# 4. TUGMALAR VA INTERFEYS (KEYBOARDS)
+# 4. TUGMALAR VA INTERFEYS
 # ==============================================================================
 
 BTN_CARDS = "💳 Mening kartalarim"
@@ -347,10 +338,6 @@ async def process_cancel(message: Message, state: FSMContext):
         await message.answer("Siz hozirda hech qanday jarayonda emassiz.", reply_markup=get_main_menu(message.from_user.id))
 
 
-# ==============================================================================
-# 6. KARTA KO'RISH (IMLOIY TO'G'RILANGAN)
-# ==============================================================================
-
 @dp.message(F.text == BTN_CARDS)
 async def show_my_cards_handler(message: Message, state: FSMContext):
     """Mening kartalarim bo'limi."""
@@ -380,10 +367,6 @@ async def show_my_cards_handler(message: Message, state: FSMContext):
             await message.answer(text=card_info, reply_markup=get_card_action_inline(card_id), parse_mode="HTML")
     gc.collect()
 
-
-# ==============================================================================
-# 7. KARTA QO'SHISH (FSM)
-# ==============================================================================
 
 @dp.message(F.text == BTN_ADD_CARD)
 async def start_add_card(message: Message, state: FSMContext):
@@ -448,7 +431,7 @@ async def process_card_number_input(message: Message, state: FSMContext):
     await state.update_data(card_number=raw_number)
     date_prompt = (
         "📅 <b>Endi kartangizning amal qilish muddatini kiriting:</b>\n\n"
-        "Format: <b>OYo/YIL</b> (Masalan: <b>12/28</b> yoki <b>06/31</b>)"
+        "Format: <b>OYo/YIL</b> (Masalan: <b>12/28</b> yoki <b>05/30</b>)"
     )
     await message.answer(date_prompt, parse_mode="HTML")
     await state.set_state(CardState.waiting_for_date)
@@ -465,7 +448,7 @@ async def process_card_date_input(message: Message, state: FSMContext):
 
     if not re.match(r"^(0[1-9]|1[0-2])\/\d{2}$", input_date):
         error_text = (
-            "⚠️ <b>Amal qilish muddati noto'g'ri kiritildi!</b>\n\n"
+            "⚠️ <b>Amal qilish muddati noto'g meva kiritildi!</b>\n\n"
             "Iltimos, kartangiz muddatini <b>MM/YY</b> ko'rinishida kiriting.\n"
             "<i>Misol uchun: 12/28 yoki 05/30</i>"
         )
