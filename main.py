@@ -2,6 +2,7 @@ import logging
 import sqlite3
 import re
 import asyncio
+import gc  # RAM'ni avtomatik va majburiy tozalash uchun
 from aiogram import Bot, Dispatcher, F, html
 from aiogram.types import (
     Message, 
@@ -17,7 +18,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.filters import CommandStart, Command
 
 # ==========================================
-# 1. SOZLAMALAR VA BOSHMIYA SOZLAMALARI
+# 1. SOZLAMALAR
 # ==========================================
 
 BOT_TOKEN = "8888847127:AAHJwLGdphr3JLEaGMreFAuCnNCQ1Zlp_LU"
@@ -33,11 +34,17 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 # ==========================================
-# 2. MA'LUMOTLAR BAZASI BILAN ISHLASH (SQLITE3)
+# 2. MA'LUMOTLAR BAZASI (RAM OPTIMIZATION)
 # ==========================================
 
 conn = sqlite3.connect("bank_bot.db", check_same_thread=False)
 cursor = conn.cursor()
+
+# RAM'ga tushadigan yukni keskin kamaytirish uchun baza sozlamalari
+cursor.execute("PRAGMA journal_mode=WAL;")
+cursor.execute("PRAGMA synchronous=NORMAL;")
+cursor.execute("PRAGMA cache_size=-2000;") # Maksimal 2MB RAM keshlash
+conn.commit()
 
 def init_db():
     """Baza jadvallarini yaratish va tekshirish"""
@@ -63,11 +70,10 @@ def init_db():
     """)
     conn.commit()
 
-# Baza jadvalini ishga tushirish
 init_db()
 
 def db_update_user(user_id: int, full_name: str, username: str):
-    """Foydalanuvchi ma'lumotlarini bazada yangilash yoki qo'shish"""
+    """Foydalanuvchini bazaga qo'shish yoki yangilash"""
     uname = username if username else "mavjud_emas"
     cursor.execute("""
         INSERT INTO users (user_id, full_name, username) 
@@ -79,7 +85,7 @@ def db_update_user(user_id: int, full_name: str, username: str):
     conn.commit()
 
 def db_add_card(user_id: int, card_number: str, card_date: str, card_type: str) -> bool:
-    """Yangi kartani bazaga saqlash"""
+    """Yangi kartani saqlash"""
     try:
         cursor.execute("""
             INSERT INTO my_cards (user_id, card_number, card_date, card_type) 
@@ -92,7 +98,7 @@ def db_add_card(user_id: int, card_number: str, card_date: str, card_type: str) 
         return False
 
 def db_get_user_cards(user_id: int):
-    """Foydalanuvchining barcha kartalarini olish"""
+    """Foydalanuvchi kartalarini olish"""
     cursor.execute("""
         SELECT card_number, card_date, card_type 
         FROM my_cards 
@@ -102,18 +108,18 @@ def db_get_user_cards(user_id: int):
     return cursor.fetchall()
 
 def db_get_all_users():
-    """Admin uchun barcha foydalanuvchilar ro'yxatini olish"""
+    """Admin uchun barcha foydalanuvchilar"""
     cursor.execute("SELECT user_id, full_name, username FROM users")
     return cursor.fetchall()
 
 def db_get_users_count() -> int:
-    """Jami foydalanuvchilar sonini olish"""
+    """Jami foydalanuvchilar soni"""
     cursor.execute("SELECT COUNT(*) FROM users")
     result = cursor.fetchone()
     return result[0] if result else 0
 
 # ==========================================
-# 3. FSM (HOLATLAR) TAVSIFI
+# 3. FSM (HOLATLAR)
 # ==========================================
 
 class CardState(StatesGroup):
@@ -122,7 +128,7 @@ class CardState(StatesGroup):
     waiting_for_date = State()
 
 # ==========================================
-# 4. TUGMALAR VA MENYULAR (KEYBOARDS)
+# 4. TUGMALAR VA MENYULAR
 # ==========================================
 
 MAIN_MENU_TEXTS = [
@@ -134,7 +140,6 @@ MAIN_MENU_TEXTS = [
 ]
 
 def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
-    """Asosiy menyu klaviaturasi"""
     buttons = [
         [KeyboardButton(text="💳 Mening Kartalarim")],
         [KeyboardButton(text="➕ Yangi karta qo'shish"), KeyboardButton(text="🧾 Tushumlar Tarixi")],
@@ -146,14 +151,12 @@ def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
 def get_cancel_menu() -> ReplyKeyboardMarkup:
-    """Bekor qilish menyusi"""
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="❌ Bekor qilish")]],
         resize_keyboard=True
     )
 
 def get_card_type_keyboard() -> InlineKeyboardMarkup:
-    """Karta turini tanlash tugmalari"""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -164,7 +167,6 @@ def get_card_type_keyboard() -> InlineKeyboardMarkup:
     )
 
 def get_add_card_inline_keyboard() -> InlineKeyboardMarkup:
-    """Kartalar yo'q bo'lganda chiqadigan tugma"""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="➕ Yangi karta qo'shish", callback_data="start_add_card")]
@@ -172,12 +174,11 @@ def get_add_card_inline_keyboard() -> InlineKeyboardMarkup:
     )
 
 # ==========================================
-# 5. COMMAND & SYSTEM HANDLERLARI
+# 5. HANDLERLAR
 # ==========================================
 
 @dp.message(CommandStart())
 async def start_cmd(message: Message, state: FSMContext):
-    """/start komandasi handler"""
     await state.clear()
     db_update_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
 
@@ -195,20 +196,14 @@ async def start_cmd(message: Message, state: FSMContext):
 @dp.message(F.text == "❌ Bekor qilish")
 @dp.message(Command("cancel"))
 async def cancel_handler(message: Message, state: FSMContext):
-    """Jarayonlarni bekor qilish handler"""
     await state.clear()
     await message.answer(
         "🚫 Jarayon bekor qilindi. Bosh menyuga qaytdingiz.",
         reply_markup=get_main_menu(message.from_user.id)
     )
 
-# ==========================================
-# 6. KARTA QO'SHISH JARAYONI (FSM)
-# ==========================================
-
 @dp.message(F.text == "➕ Yangi karta qo'shish")
 async def add_card_start(message: Message, state: FSMContext):
-    """Karta qo'shishni boshlash"""
     await state.clear()
     db_update_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     
@@ -223,7 +218,6 @@ async def add_card_start(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data == "start_add_card")
 async def inline_add_card_start(callback: CallbackQuery, state: FSMContext):
-    """Inline tugma orqali karta qo'shish"""
     await state.clear()
     await callback.message.answer("Jarayon boshlandi. Bekor qilish uchun pastdagi tugmani bosing:", reply_markup=get_cancel_menu())
     
@@ -234,7 +228,6 @@ async def inline_add_card_start(callback: CallbackQuery, state: FSMContext):
 
 @dp.callback_query(CardState.waiting_for_type, F.data.startswith("type_"))
 async def process_card_type(callback: CallbackQuery, state: FSMContext):
-    """Karta turini saqlash va raqam so'rash"""
     card_type = "🔹 Uzcard" if callback.data == "type_uzcard" else "🟠 Humo"
     await state.update_data(card_type=card_type)
     
@@ -248,8 +241,6 @@ async def process_card_type(callback: CallbackQuery, state: FSMContext):
 
 @dp.message(CardState.waiting_for_number)
 async def process_card_number(message: Message, state: FSMContext):
-    """Karta raqamini qabul qilish va tekshirish"""
-    # Agar foydalanuvchi menyu tugmasini bosib yuborgan bo'lsa, state tozalanadi
     if message.text in MAIN_MENU_TEXTS:
         await state.clear()
         return
@@ -270,14 +261,12 @@ async def process_card_number(message: Message, state: FSMContext):
 
 @dp.message(CardState.waiting_for_date)
 async def process_card_date(message: Message, state: FSMContext):
-    """Amal qilish muddatini tekshirish va kartani saqlash"""
     if message.text in MAIN_MENU_TEXTS:
         await state.clear()
         return
 
     card_date = message.text.strip()
     
-    # MM/YY formatini tekshirish
     if not re.match(r"^(0[1-9]|1[0-2])\/\d{2}$", card_date):
         await message.answer(
             "⚠️ <b>Xato format!</b> Muddati noto'g'ri kiritildi.\n"
@@ -295,9 +284,11 @@ async def process_card_date(message: Message, state: FSMContext):
         await message.answer("⚠️ Sessiya vaqti tugadi. Qaytadan karta qo'shing.", reply_markup=get_main_menu(message.from_user.id))
         return
 
-    # Bazaga saqlash
     success = db_add_card(message.from_user.id, card_number, card_date, card_type)
+    
+    # Holat va RAM xotirasini darhol tozalash
     await state.clear()
+    gc.collect()
 
     if success:
         await message.answer(
@@ -311,13 +302,8 @@ async def process_card_date(message: Message, state: FSMContext):
             reply_markup=get_main_menu(message.from_user.id)
         )
 
-# ==========================================
-# 7. MENYU FUNKSIYALARI (KARTALAR, TARIX, ADMIN)
-# ==========================================
-
 @dp.message(F.text == "💳 Mening Kartalarim")
 async def show_cards(message: Message, state: FSMContext):
-    """Foydalanuvchining kartalari ro'yxati"""
     await state.clear()
     db_update_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     
@@ -338,10 +324,10 @@ async def show_cards(message: Message, state: FSMContext):
             reply_markup=get_add_card_inline_keyboard(),
             parse_mode="HTML"
         )
+    gc.collect()
 
 @dp.message(F.text == "🧾 Tushumlar Tarixi")
 async def show_history(message: Message, state: FSMContext):
-    """Tushumlar tarixi bo'limi"""
     await state.clear()
     db_update_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     
@@ -354,7 +340,6 @@ async def show_history(message: Message, state: FSMContext):
 
 @dp.message(F.text == "👨‍💻 Adminga bog'lanish")
 async def contact_admin(message: Message, state: FSMContext):
-    """Admin bilan bog'lanish bo'limi"""
     await state.clear()
     db_update_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     
@@ -371,7 +356,6 @@ async def contact_admin(message: Message, state: FSMContext):
 
 @dp.message(F.text == "⚙️ Admin Panel")
 async def admin_panel(message: Message, state: FSMContext):
-    """Admin panel (Faqat ADMIN_ID uchun)"""
     await state.clear()
     db_update_user(message.from_user.id, message.from_user.full_name, message.from_user.username)
     
@@ -389,13 +373,14 @@ async def admin_panel(message: Message, state: FSMContext):
         panel_text += f"{idx}. {html.quote(u[1])} | {uname} (ID: <code>{u[0]}</code>)\n"
         
     await message.answer(panel_text, parse_mode="HTML", reply_markup=get_main_menu(message.from_user.id))
+    gc.collect()
 
 # ==========================================
-# 8. BOTNI ISHGA TUSHIRISH (MAIN FUNCTION)
+# 6. ISHGA TUSHIRISH
 # ==========================================
 
 async def main():
-    logging.info("Bot muvaffaqiyatli ishga tushdi...")
+    logging.info("Bot yengil va tezkor rejimda ishga tushdi...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
