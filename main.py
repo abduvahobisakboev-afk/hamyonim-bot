@@ -35,7 +35,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 # 1. TIZIM VA LOGGING SOZLAMALARI
 # ==============================================================================
 
-BOT_TOKEN = "8888847127:AAHJwLGdphr3JLEaGMreFAuCnNCQ1Zlp_LU"
+BOT_TOKEN = "8888847127:AAG4D9TC2tPwuXHJ_Cp-xKIzmsnF9OVcfXs"
 ADMIN_ID = 1673990832
 DB_PATH = "bank_bot.db"
 
