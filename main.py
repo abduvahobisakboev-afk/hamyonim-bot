@@ -21,7 +21,7 @@ from aiogram.filters import CommandStart, Command
 # 1. SOZLAMALAR
 # ==========================================
 
-BOT_TOKEN = "8888847127:AAHJwLGdphr3JLEaGMreFAuCnNCQ1Zlp_LU"
+BOT_TOKEN = "8888847127:AAFzmIe1oCZWipIzcv2GOj4gX9RcVMUHipQ"
 ADMIN_ID = 1673990832  # Sizning Telegram ID raqamingiz
 
 logging.basicConfig(
