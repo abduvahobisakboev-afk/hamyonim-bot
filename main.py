@@ -1,6 +1,6 @@
 """
 ==============================================================================
- HAMYONIM — Shaxsiy Moliya va Bank Kartalarini Boshqarish Telegram Boti
+  HAMYONIM — Shaxsiy Moliya va Bank Kartalarini Boshqarish Telegram Boti
 ==============================================================================
 
 Tavsif:
@@ -58,20 +58,18 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 # 1. KONFIGURATSIYA
 # ==============================================================================
 
-BOT_TOKEN: str = os.getenv("8888847127:AAEbgW0Kk97WPRyqdZaslynlxrNrbE1vNa0")
+# Yangi yangilangan Telegram Bot Tokeningiz:
+BOT_TOKEN: str = "8888847127:AAEbgW0Kk97WPRyqdZaslynlxrNrbE1vNa0"
 
-# Admin sifatida ishlaydigan Telegram user_id lar ro'yxati
-ADMIN_IDS: set[int] = {
-    int(uid) for uid in os.getenv("HAMYONIM_ADMIN_IDS", "123456789").split(",") if uid.strip().isdigit()
-}
+# Admin Telegram ID (Boshqaruv paneli uchun)
+ADMIN_IDS: set[int] = {123456789} 
 
-DB_PATH: str = os.getenv("HAMYONIM_DB_PATH", "hamyonim.db")
-LOG_PATH: str = os.getenv("HAMYONIM_LOG_PATH", "hamyonim.log")
+DB_PATH: str = "hamyonim.db"
+LOG_PATH: str = "hamyonim.log"
 
-# Sahifalash (pagination) sozlamalari
 TRANSACTIONS_PER_PAGE: int = 8
 USERS_PER_BROADCAST_BATCH: int = 25
-BROADCAST_DELAY_SECONDS: float = 0.05  # Telegram flood-limit dan qochish uchun
+BROADCAST_DELAY_SECONDS: float = 0.05
 
 DEFAULT_CATEGORIES_INCOME: list[str] = [
     "💼 Ish haqi",
@@ -84,7 +82,7 @@ DEFAULT_CATEGORIES_INCOME: list[str] = [
 DEFAULT_CATEGORIES_EXPENSE: list[str] = [
     "🍽 Oziq-ovqat",
     "🚕 Transport",
-    "🏠 Uy-joy",
+    "🏠 Uy-job",
     "👕 Kiyim-kechak",
     "💊 Salomatlik",
     "🎓 Ta'lim",
@@ -98,7 +96,6 @@ DEFAULT_CATEGORIES_EXPENSE: list[str] = [
 # ==============================================================================
 
 def setup_logging() -> logging.Logger:
-    """Bot uchun konsol va faylga yozadigan logger sozlaydi."""
     logger = logging.getLogger("hamyonim")
     logger.setLevel(logging.INFO)
 
@@ -119,7 +116,6 @@ def setup_logging() -> logging.Logger:
     logger.addHandler(file_handler)
     return logger
 
-
 logger = setup_logging()
 
 
@@ -134,16 +130,10 @@ class CardType(str, Enum):
 
 
 def clean_card_number(raw: str) -> str:
-    """Karta raqamidan probel, tire va boshqa belgilarni tozalaydi."""
     return re.sub(r"[^\d]", "", raw)
 
 
 def detect_card_type(card_number: str) -> CardType:
-    """
-    Karta raqami bo'yicha turini aniqlaydi.
-    Uzcard: 8600 bilan boshlanadi (asosan)
-    Humo:   9860 bilan boshlanadi (asosan)
-    """
     digits = clean_card_number(card_number)
     if digits.startswith("8600"):
         return CardType.UZCARD
@@ -153,16 +143,11 @@ def detect_card_type(card_number: str) -> CardType:
 
 
 def is_valid_card_number(card_number: str) -> bool:
-    """Karta raqami 16 ta raqamdan iborat ekanligini tekshiradi."""
     digits = clean_card_number(card_number)
     return len(digits) == 16 and digits.isdigit()
 
 
 def mask_card_number(card_number: str) -> str:
-    """
-    Xavfsizlik maqsadida karta raqamini niqoblaydi.
-    Faqat birinchi 4 va oxirgi 4 raqam ko'rinadi: 8600 **** **** 1234
-    """
     digits = clean_card_number(card_number)
     if len(digits) != 16:
         return "**** **** **** ****"
@@ -170,7 +155,6 @@ def mask_card_number(card_number: str) -> str:
 
 
 def format_money(amount: float) -> str:
-    """Summani chiroyli formatga o'tkazadi: 1234567.5 -> 1 234 567.50 so'm"""
     sign = "-" if amount < 0 else ""
     amount = abs(amount)
     integer_part = int(amount)
@@ -180,7 +164,6 @@ def format_money(amount: float) -> str:
 
 
 def format_datetime(dt_str: str) -> str:
-    """ISO formatdagi vaqtni foydalanuvchiga qulay formatga o'tkazadi."""
     try:
         dt = datetime.fromisoformat(dt_str)
         return dt.strftime("%d.%m.%Y %H:%M")
@@ -189,7 +172,6 @@ def format_datetime(dt_str: str) -> str:
 
 
 def escape_html(text: str) -> str:
-    """HTML parse mode uchun maxsus belgilarni ekranlaydi."""
     return (
         text.replace("&", "&amp;")
         .replace("<", "&lt;")
@@ -202,12 +184,6 @@ def escape_html(text: str) -> str:
 # ==============================================================================
 
 class Database:
-    """
-    SQLite3 ma'lumotlar bazasi bilan ishlash uchun barcha metodlarni
-    o'z ichiga olgan sinf. WAL (Write-Ahead Logging) rejimi yoqilgan —
-    bu bir vaqtning o'zida o'qish va yozish tezligini oshiradi.
-    """
-
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
         self._init_db()
@@ -221,7 +197,6 @@ class Database:
         return conn
 
     def _init_db(self) -> None:
-        """Barcha jadvallarni yaratadi (agar mavjud bo'lmasa)."""
         with closing(self._get_connection()) as conn, conn:
             conn.execute(
                 """
@@ -263,18 +238,10 @@ class Database:
                 );
                 """
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions (user_id);"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions (created_at);"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_cards_user_id ON cards (user_id);"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions (user_id);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions (created_at);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_cards_user_id ON cards (user_id);")
         logger.info("Ma'lumotlar bazasi muvaffaqiyatli ishga tushirildi: %s", self.db_path)
-
-    # ---------------------------------------------------------------- USERS
 
     def add_user(self, user_id: int, username: Optional[str], full_name: str) -> None:
         now = datetime.now().isoformat(timespec="seconds")
@@ -315,6 +282,19 @@ class Database:
                 (delta, now, user_id),
             )
 
+    def set_balance(self, user_id: int, amount: float) -> None:
+        now = datetime.now().isoformat(timespec="seconds")
+        with closing(self._get_connection()) as conn, conn:
+            conn.execute(
+                "UPDATE users SET balance = ?, updated_at = ? WHERE user_id = ?;",
+                (amount, now, user_id),
+            )
+
+    def clear_user_history(self, user_id: int) -> None:
+        with closing(self._get_connection()) as conn, conn:
+            conn.execute("DELETE FROM transactions WHERE user_id = ?;", (user_id,))
+            conn.execute("UPDATE users SET balance = 0 WHERE user_id = ?;", (user_id,))
+
     def set_blocked(self, user_id: int, blocked: bool) -> None:
         with closing(self._get_connection()) as conn, conn:
             conn.execute(
@@ -344,15 +324,8 @@ class Database:
             )
             return cur.fetchone()["cnt"]
 
-    # --------------------------------------------------------- TRANSACTIONS
-
     def add_transaction(
-        self,
-        user_id: int,
-        tx_type: str,
-        amount: float,
-        category: Optional[str],
-        note: Optional[str],
+        self, user_id: int, tx_type: str, amount: float, category: Optional[str], note: Optional[str]
     ) -> int:
         now = datetime.now().isoformat(timespec="seconds")
         with closing(self._get_connection()) as conn, conn:
@@ -369,9 +342,7 @@ class Database:
         self.update_balance(user_id, delta)
         return tx_id
 
-    def get_transactions(
-        self, user_id: int, limit: int = TRANSACTIONS_PER_PAGE, offset: int = 0
-    ) -> list[sqlite3.Row]:
+    def get_transactions(self, user_id: int, limit: int = TRANSACTIONS_PER_PAGE, offset: int = 0) -> list[sqlite3.Row]:
         with closing(self._get_connection()) as conn:
             cur = conn.execute(
                 """
@@ -386,16 +357,12 @@ class Database:
 
     def count_transactions(self, user_id: int) -> int:
         with closing(self._get_connection()) as conn:
-            cur = conn.execute(
-                "SELECT COUNT(*) AS cnt FROM transactions WHERE user_id = ?;", (user_id,)
-            )
+            cur = conn.execute("SELECT COUNT(*) AS cnt FROM transactions WHERE user_id = ?;", (user_id,))
             return cur.fetchone()["cnt"]
 
     def delete_transaction(self, tx_id: int, user_id: int) -> bool:
         with closing(self._get_connection()) as conn:
-            cur = conn.execute(
-                "SELECT * FROM transactions WHERE id = ? AND user_id = ?;", (tx_id, user_id)
-            )
+            cur = conn.execute("SELECT * FROM transactions WHERE id = ? AND user_id = ?;", (tx_id, user_id))
             row = cur.fetchone()
             if row is None:
                 return False
@@ -406,7 +373,6 @@ class Database:
             return True
 
     def get_stats_summary(self, user_id: int, days: int = 30) -> dict[str, float]:
-        """Berilgan davr (kunlarda) uchun kirim/chiqim yig'indisini qaytaradi."""
         since = (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
         with closing(self._get_connection()) as conn:
             cur = conn.execute(
@@ -438,8 +404,6 @@ class Database:
             )
             return cur.fetchall()
 
-    # --------------------------------------------------------------- CARDS
-
     def add_card(self, user_id: int, card_number: str, card_label: Optional[str]) -> int:
         card_type = detect_card_type(card_number).value
         now = datetime.now().isoformat(timespec="seconds")
@@ -455,16 +419,12 @@ class Database:
 
     def get_cards(self, user_id: int) -> list[sqlite3.Row]:
         with closing(self._get_connection()) as conn:
-            cur = conn.execute(
-                "SELECT * FROM cards WHERE user_id = ? ORDER BY created_at DESC;", (user_id,)
-            )
+            cur = conn.execute("SELECT * FROM cards WHERE user_id = ? ORDER BY created_at DESC;", (user_id,))
             return cur.fetchall()
 
     def get_card(self, card_id: int, user_id: int) -> Optional[sqlite3.Row]:
         with closing(self._get_connection()) as conn:
-            cur = conn.execute(
-                "SELECT * FROM cards WHERE id = ? AND user_id = ?;", (card_id, user_id)
-            )
+            cur = conn.execute("SELECT * FROM cards WHERE id = ? AND user_id = ?;", (card_id, user_id))
             return cur.fetchone()
 
     def count_cards(self, user_id: int) -> int:
@@ -474,12 +434,8 @@ class Database:
 
     def delete_card(self, card_id: int, user_id: int) -> bool:
         with closing(self._get_connection()) as conn, conn:
-            cur = conn.execute(
-                "DELETE FROM cards WHERE id = ? AND user_id = ?;", (card_id, user_id)
-            )
+            cur = conn.execute("DELETE FROM cards WHERE id = ? AND user_id = ?;", (card_id, user_id))
             return cur.rowcount > 0
-
-    # --------------------------------------------------------- ADMIN STATS
 
     def get_global_stats(self) -> dict[str, Any]:
         with closing(self._get_connection()) as conn:
@@ -492,9 +448,7 @@ class Database:
             total_expense = conn.execute(
                 "SELECT COALESCE(SUM(amount), 0) AS s FROM transactions WHERE type='expense';"
             ).fetchone()["s"]
-            blocked = conn.execute(
-                "SELECT COUNT(*) AS cnt FROM users WHERE is_blocked = 1;"
-            ).fetchone()["cnt"]
+            blocked = conn.execute("SELECT COUNT(*) AS cnt FROM users WHERE is_blocked = 1;").fetchone()["cnt"]
         return {
             "total_users": total_users,
             "blocked_users": blocked,
@@ -503,7 +457,6 @@ class Database:
             "total_income": total_income,
             "total_expense": total_expense,
         }
-
 
 db = Database(DB_PATH)
 
@@ -554,7 +507,6 @@ MAIN_MENU_BUTTONS = [
 
 
 def main_menu_keyboard(user_id: int) -> ReplyKeyboardMarkup:
-    """Asosiy menyu klaviaturasi. Admin uchun qo'shimcha tugma qo'shiladi."""
     builder = ReplyKeyboardBuilder()
     for label in MAIN_MENU_BUTTONS:
         builder.add(KeyboardButton(text=label))
@@ -589,15 +541,10 @@ def skip_note_keyboard(prefix: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def transactions_pagination_keyboard(
-    current_page: int, total_pages: int, tx_ids: list[int]
-) -> InlineKeyboardMarkup:
+def transactions_pagination_keyboard(current_page: int, total_pages: int, tx_ids: list[int]) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-
     for tx_id in tx_ids:
-        builder.add(
-            InlineKeyboardButton(text=f"🗑 #{tx_id} o'chirish", callback_data=f"tx_del:{tx_id}:{current_page}")
-        )
+        builder.add(InlineKeyboardButton(text=f"🗑 #{tx_id} o'chirish", callback_data=f"tx_del:{tx_id}:{current_page}"))
     builder.adjust(1)
 
     nav_row: list[InlineKeyboardButton] = []
@@ -649,7 +596,7 @@ def confirm_clear_history_keyboard() -> InlineKeyboardMarkup:
 
 def admin_panel_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"))
+    builder.row(InlineKeyboardButton(text="📊 Umumiy Statistika", callback_data="admin_stats"))
     builder.row(InlineKeyboardButton(text="📢 Xabar tarqatish (Broadcast)", callback_data="admin_broadcast"))
     return builder.as_markup()
 
@@ -677,7 +624,6 @@ def stats_period_keyboard() -> InlineKeyboardMarkup:
 
 user_router = Router(name="user_router")
 admin_router = Router(name="admin_router")
-
 
 # ------------------------------------------------------------------------
 # 7.1. UMUMIY / START
@@ -775,7 +721,7 @@ async def process_income_category(callback: CallbackQuery, state: FSMContext) ->
     await state.update_data(category=category)
     await state.set_state(AddIncomeStates.entering_amount)
     await callback.message.edit_text(
-        f"✅ Kategoriya: <b>{category}</b>\n\n💵 Endi summani kiriting (so'mda), masalan: <code>150000</code>"
+        f"✅ Kategoriya: <b>{category}</b>\n\n💵 Endi summana kiriting (so'mda), masalan: <code>150000</code>"
     )
     await callback.answer()
 
@@ -864,7 +810,7 @@ async def process_expense_category(callback: CallbackQuery, state: FSMContext) -
     await state.update_data(category=category)
     await state.set_state(AddExpenseStates.entering_amount)
     await callback.message.edit_text(
-        f"✅ Kategoriya: <b>{category}</b>\n\n💵 Endi summani kiriting (so'mda), masalan: <code>45000</code>"
+        f"✅ Kategoriya: <b>{category}</b>\n\n💵 Endi chiqim summasini kiriting (so'mda):"
     )
     await callback.answer()
 
@@ -877,13 +823,13 @@ async def process_expense_amount(message: Message, state: FSMContext) -> None:
         if amount <= 0:
             raise ValueError
     except ValueError:
-        await message.answer("⚠️ Noto'g'ri format. Iltimos, musbat sonli summa kiriting, masalan: <code>45000</code>")
+        await message.answer("⚠️ Iltimos, faqat musbat son kiriting:")
         return
 
     await state.update_data(amount=amount)
     await state.set_state(AddExpenseStates.entering_note)
     await message.answer(
-        "📝 Izoh qo'shmoqchimisiz? (ixtiyoriy)\nMatn kiriting yoki o'tkazib yuboring:",
+        "📝 Izoh qo'shasizmi? (ixtiyoriy):",
         reply_markup=skip_note_keyboard("exp_note"),
     )
 
@@ -893,7 +839,7 @@ async def process_expense_note_callback(callback: CallbackQuery, state: FSMConte
     _, action = callback.data.split(":", maxsplit=1)
     if action == "cancel":
         await state.clear()
-        await callback.message.edit_text("🚫 Chiqim qo'shish bekor qilindi.")
+        await callback.message.edit_text("🚫 Chiqim bekor qilindi.")
         await callback.answer()
         return
 
@@ -915,570 +861,333 @@ async def _finalize_expense(message: Message, user_id: int, data: dict, note: Op
     category = data["category"]
     db.add_transaction(user_id, "expense", amount, category, note)
 
-    balance = db.get_balance(user_id)
-    warning = "\n\n⚠️ <b>Diqqat:</b> balansingiz manfiy!" if balance < 0 else ""
-
     text = (
-        "✅ <b>Chiqim muvaffaqiyatli qo'shildi!</b>\n\n"
+        "✅ <b>Chiqim muvaffaqiyatli saqlandi!</b>\n\n"
         f"📂 Kategoriya: {category}\n"
         f"💵 Summa: {format_money(amount)}\n"
     )
     if note:
         text += f"📝 Izoh: {escape_html(note)}\n"
-    text += f"\n💰 Yangi balans: <b>{format_money(balance)}</b>{warning}"
+    text += f"\n💰 Yangi balans: <b>{format_money(db.get_balance(user_id))}</b>"
 
     await message.answer(text, reply_markup=main_menu_keyboard(user_id))
 
 
 # ------------------------------------------------------------------------
-# 7.4. TRANZAKSIYALAR TARIXI (PAGINATION)
+# 7.4. STATISTIKA BO'LIMI
 # ------------------------------------------------------------------------
 
-def _build_transactions_page_text(user_id: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
-    total = db.count_transactions(user_id)
-    total_pages = max((total + TRANSACTIONS_PER_PAGE - 1) // TRANSACTIONS_PER_PAGE, 1)
-    page = max(0, min(page, total_pages - 1))
-
-    rows = db.get_transactions(user_id, limit=TRANSACTIONS_PER_PAGE, offset=page * TRANSACTIONS_PER_PAGE)
-
-    if not rows:
-        text = "🧾 Sizda hali birorta ham tranzaksiya yo'q."
-        return text, transactions_pagination_keyboard(0, 1, [])
-
-    lines = [f"🧾 <b>Tranzaksiyalar tarixi</b> (sahifa {page + 1}/{total_pages})\n"]
-    for row in rows:
-        icon = "📥" if row["type"] == "income" else "📤"
-        sign = "+" if row["type"] == "income" else "-"
-        lines.append(
-            f"{icon} #{row['id']} | {sign}{format_money(row['amount'])} | "
-            f"{row['category'] or '—'} | {format_datetime(row['created_at'])}"
-        )
-        if row["note"]:
-            lines.append(f"   📝 {escape_html(row['note'])}")
-
-    text = "\n".join(lines)
-    keyboard = transactions_pagination_keyboard(page, total_pages, [row["id"] for row in rows])
-    return text, keyboard
+@user_router.message(F.text == "📊 Statistika")
+async def cmd_stats(message: Message) -> None:
+    await message.answer("🗓 Hisobot davrini tanlang:", reply_markup=stats_period_keyboard())
 
 
-@user_router.message(F.text == "🧾 Tranzaksiyalar tarixi")
-async def show_transactions_history(message: Message) -> None:
-    text, keyboard = _build_transactions_page_text(message.from_user.id, page=0)
-    await message.answer(text, reply_markup=keyboard)
+@user_router.callback_query(F.data.startswith("stats_period:"))
+async def process_stats_period(callback: CallbackQuery) -> None:
+    _, days_str = callback.data.split(":")
+    days = int(days_str)
+    user_id = callback.from_user.id
 
+    summary = db.get_stats_summary(user_id, days)
+    inc_breakdown = db.get_category_breakdown(user_id, "income", days)
+    exp_breakdown = db.get_category_breakdown(user_id, "expense", days)
 
-@user_router.callback_query(F.data.startswith("tx_page:"))
-async def paginate_transactions(callback: CallbackQuery) -> None:
-    _, page_str = callback.data.split(":", maxsplit=1)
-    text, keyboard = _build_transactions_page_text(callback.from_user.id, page=int(page_str))
-    try:
-        await callback.message.edit_text(text, reply_markup=keyboard)
-    except TelegramAPIError:
-        pass
+    text = f"📊 <b>Oxirgi {days} kunlik hisobot:</b>\n\n"
+    text += f"📥 Jami kirim: <code>{format_money(summary['income'])}</code>\n"
+    text += f"📤 Jami chiqim: <code>{format_money(summary['expense'])}</code>\n"
+    text += "───────────────────\n\n"
+
+    if inc_breakdown:
+        text += "💼 <b>Kirimlar kategoriyalar bo'yicha:</b>\n"
+        for row in inc_breakdown:
+            text += f"• {row['category']}: {format_money(row['total'])} ({row['cnt']} marta)\n"
+        text += "\n"
+
+    if exp_breakdown:
+        text += "🍽 <b>Chiqimlar kategoriyalar bo'yicha:</b>\n"
+        for row in exp_breakdown:
+            text += f"• {row['category']}: {format_money(row['total'])} ({row['cnt']} marta)\n"
+    
+    if not inc_breakdown and not exp_breakdown:
+        text += "📭 Ushbu davrda hech qanday tranzaksiya topilmadi."
+
+    await callback.message.edit_text(text, reply_markup=stats_period_keyboard())
     await callback.answer()
 
 
-@user_router.callback_query(F.data == "tx_noop")
-async def tx_noop(callback: CallbackQuery) -> None:
+# ------------------------------------------------------------------------
+# 7.5. TRANZAKSIYALAR TARIXI
+# ------------------------------------------------------------------------
+
+@user_router.message(F.text == "🧾 Tranzaksiyalar tarixi")
+async def cmd_tx_history(message: Message) -> None:
+    await _show_transactions_page(message, message.from_user.id, page=0)
+
+
+@user_router.callback_query(F.data.startswith("tx_page:"))
+async def process_tx_pagination(callback: CallbackQuery) -> None:
+    _, page_str = callback.data.split(":")
+    await _show_transactions_page(callback.message, callback.from_user.id, page=int(page_str), edit=True)
     await callback.answer()
 
 
 @user_router.callback_query(F.data.startswith("tx_del:"))
-async def delete_transaction_callback(callback: CallbackQuery) -> None:
-    _, tx_id_str, page_str = callback.data.split(":", maxsplit=2)
-    tx_id, page = int(tx_id_str), int(page_str)
-
-    success = db.delete_transaction(tx_id, callback.from_user.id)
-    if success:
-        await callback.answer("✅ Tranzaksiya o'chirildi.")
-    else:
-        await callback.answer("⚠️ Tranzaksiya topilmadi.", show_alert=True)
-
-    text, keyboard = _build_transactions_page_text(callback.from_user.id, page=page)
-    try:
-        await callback.message.edit_text(text, reply_markup=keyboard)
-    except TelegramAPIError:
-        pass
-
-
-# ------------------------------------------------------------------------
-# 7.5. STATISTIKA
-# ------------------------------------------------------------------------
-
-@user_router.message(F.text == "📊 Statistika")
-async def show_statistics_menu(message: Message) -> None:
-    await message.answer(
-        "📊 <b>Statistika</b>\n\nQaysi davr uchun statistikani ko'rmoqchisiz?",
-        reply_markup=stats_period_keyboard(),
-    )
-
-
-@user_router.callback_query(F.data.startswith("stats_period:"))
-async def show_statistics(callback: CallbackQuery) -> None:
-    _, days_str = callback.data.split(":", maxsplit=1)
-    days = int(days_str)
+async def process_tx_delete(callback: CallbackQuery) -> None:
+    _, tx_id_str, page_str = callback.data.split(":")
+    tx_id = int(tx_id_str)
+    page = int(page_str)
     user_id = callback.from_user.id
 
-    summary = db.get_stats_summary(user_id, days=days)
-    income_breakdown = db.get_category_breakdown(user_id, "income", days=days)
-    expense_breakdown = db.get_category_breakdown(user_id, "expense", days=days)
+    if db.delete_transaction(tx_id, user_id):
+        await callback.answer("🗑 Tranzaksiya o'chirildi va balans qayta hisoblandi!")
+        await _show_transactions_page(callback.message, user_id, page=page, edit=True)
+    else:
+        await callback.answer("⚠️ Tranzaksiya topilmadi!", show_alert=True)
 
-    net = summary["income"] - summary["expense"]
-    net_emoji = "🟢" if net >= 0 else "🔴"
 
-    lines = [
-        f"📊 <b>Oxirgi {days} kunlik statistika</b>\n",
-        f"📥 Jami kirim: <b>{format_money(summary['income'])}</b>",
-        f"📤 Jami chiqim: <b>{format_money(summary['expense'])}</b>",
-        f"{net_emoji} Sof natija: <b>{format_money(net)}</b>\n",
-    ]
+async def _show_transactions_page(message: Message, user_id: int, page: int, edit: bool = False) -> None:
+    total_tx = db.count_transactions(user_id)
+    total_pages = (total_tx + TRANSACTIONS_PER_PAGE - 1) // TRANSACTIONS_PER_PAGE
+    offset = page * TRANSACTIONS_PER_PAGE
+    tx_list = db.get_transactions(user_id, limit=TRANSACTIONS_PER_PAGE, offset=offset)
 
-    if expense_breakdown:
-        lines.append("📤 <b>Chiqimlar kategoriya bo'yicha:</b>")
-        for row in expense_breakdown[:6]:
-            lines.append(f"  • {row['category'] or '—'}: {format_money(row['total'])} ({row['cnt']} ta)")
+    if not tx_list:
+        text = "📭 Tranzaksiyalar tarixi bo'sh."
+        if edit:
+            await message.edit_text(text)
+        else:
+            await message.answer(text)
+        return
 
-    if income_breakdown:
-        lines.append("\n📥 <b>Kirimlar kategoriya bo'yicha:</b>")
-        for row in income_breakdown[:6]:
-            lines.append(f"  • {row['category'] or '—'}: {format_money(row['total'])} ({row['cnt']} ta)")
+    text = f"🧾 <b>Tranzaksiyalar tarixi (Sahifa {page + 1}/{max(total_pages, 1)}):</b>\n\n"
+    tx_ids = []
+    for tx in tx_list:
+        tx_ids.append(tx["id"])
+        sign = "➕" if tx["type"] == "income" else "➖"
+        note_str = f" ({tx['note']})" if tx["note"] else ""
+        text += f"<b>#{tx['id']}</b> | {sign} <code>{format_money(tx['amount'])}</code> | {tx['category']}{note_str}\n⏱ <i>{format_datetime(tx['created_at'])}</i>\n\n"
 
-    try:
-        await callback.message.edit_text("\n".join(lines))
-    except TelegramAPIError:
-        await callback.message.answer("\n".join(lines))
-    await callback.answer()
+    markup = transactions_pagination_keyboard(page, total_pages, tx_ids)
+    if edit:
+        await message.edit_text(text, reply_markup=markup)
+    else:
+        await message.answer(text, reply_markup=markup)
 
 
 # ------------------------------------------------------------------------
-# 7.6. KARTALARNI BOSHQARISH
+# 7.6. KARTALAR MENEDJMENTI
 # ------------------------------------------------------------------------
 
 @user_router.message(F.text == "💳 Kartalarim")
-async def show_cards(message: Message) -> None:
+async def cmd_cards(message: Message) -> None:
     cards = db.get_cards(message.from_user.id)
-    if not cards:
-        text = "💳 Sizda hali saqlangan karta yo'q.\n\nYangi karta qo'shish uchun tugmani bosing 👇"
-    else:
-        lines = ["💳 <b>Saqlangan kartalaringiz:</b>\n"]
-        for card in cards:
-            label = card["card_label"] or "Nomsiz"
-            lines.append(f"• {card['card_type']} — {mask_card_number(card['card_number'])} ({label})")
-        text = "\n".join(lines)
-
+    text = "💳 <b>Sizning bank kartalaringiz:</b>\n\nO'chirish uchun kerakli kartani bosing yoki yangi karta qo'shing:"
     await message.answer(text, reply_markup=cards_list_keyboard(cards))
 
 
 @user_router.callback_query(F.data == "card_add")
-async def start_add_card(callback: CallbackQuery, state: FSMContext) -> None:
+async def callback_add_card(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(AddCardStates.entering_number)
-    await callback.message.answer(
-        "💳 <b>Yangi karta qo'shish</b>\n\n"
-        "Karta raqamini kiriting (16 ta raqam):\n"
-        "<i>Masalan: 8600 1234 5678 9012</i>\n\n"
-        "🔒 Karta raqamingiz xavfsiz saqlanadi va faqat siz ko'ra olasiz.",
-        reply_markup=cancel_keyboard(),
-    )
+    await callback.message.answer("🔢 Bank karta raqamini kiriting (16 xonali son):", reply_markup=cancel_keyboard())
     await callback.answer()
 
 
 @user_router.message(StateFilter(AddCardStates.entering_number))
 async def process_card_number(message: Message, state: FSMContext) -> None:
-    card_number = message.text.strip()
-
-    # Xavfsizlik: foydalanuvchi yuborgan xabarni darhol o'chirishga harakat qilamiz,
-    # chunki unda to'liq karta raqami mavjud.
-    try:
-        await message.delete()
-    except TelegramAPIError:
-        pass
-
-    if not is_valid_card_number(card_number):
-        await message.answer(
-            "⚠️ Noto'g'ri format. Karta raqami 16 ta raqamdan iborat bo'lishi kerak.\n"
-            "Qaytadan kiriting yoki bekor qiling:",
-            reply_markup=cancel_keyboard(),
-        )
+    raw = message.text.strip()
+    if not is_valid_card_number(raw):
+        await message.answer("⚠️ Noto'g'ri karta raqami. Faqat 16 ta raqam kiriting:")
         return
 
-    card_type = detect_card_type(card_number)
-    await state.update_data(card_number=clean_card_number(card_number), card_type=card_type.value)
+    await state.update_data(card_number=raw)
     await state.set_state(AddCardStates.entering_label)
-    await message.answer(
-        f"✅ Karta turi aniqlandi: <b>{card_type.value}</b>\n\n"
-        "Kartaga nom bering (ixtiyoriy), masalan: <i>Asosiy karta</i>\n"
-        "Yoki '-' belgisini yuboring, agar nom bermoqchi bo'lmasangiz.",
-        reply_markup=cancel_keyboard(),
-    )
+    await message.answer("✍️ Karta uchun nom bering (Masalan: <i>Asosiy, Milliy Karta</i>):", reply_markup=cancel_keyboard())
 
 
 @user_router.message(StateFilter(AddCardStates.entering_label))
 async def process_card_label(message: Message, state: FSMContext) -> None:
-    label = message.text.strip()
-    if label == "-":
-        label = None
-
     data = await state.get_data()
-    card_id = db.add_card(message.from_user.id, data["card_number"], label)
-    await state.clear()
+    card_number = data["card_number"]
+    label = message.text.strip()
+    user_id = message.from_user.id
 
-    card = db.get_card(card_id, message.from_user.id)
-    text = (
-        "✅ <b>Karta muvaffaqiyatli qo'shildi!</b>\n\n"
-        f"💳 Turi: {card['card_type']}\n"
-        f"🔢 Raqami: {mask_card_number(card['card_number'])}\n"
-        f"🏷 Nomi: {card['card_label'] or 'Nomsiz'}"
-    )
-    await message.answer(text, reply_markup=main_menu_keyboard(message.from_user.id))
+    db.add_card(user_id, card_number, label)
+    await state.clear()
+    await message.answer("✅ Karta muvaffaqiyatli saqlandi!", reply_markup=main_menu_keyboard(user_id))
 
 
 @user_router.callback_query(F.data.startswith("card_del:"))
-async def confirm_delete_card(callback: CallbackQuery) -> None:
-    _, card_id_str = callback.data.split(":", maxsplit=1)
-    card_id = int(card_id_str)
-    card = db.get_card(card_id, callback.from_user.id)
-
-    if card is None:
-        await callback.answer("⚠️ Karta topilmadi.", show_alert=True)
-        return
-
-    await callback.message.answer(
-        f"❓ <b>{card['card_type']} — {mask_card_number(card['card_number'])}</b> "
-        "kartasini o'chirishni tasdiqlaysizmi?",
-        reply_markup=confirm_card_delete_keyboard(card_id),
-    )
-    await callback.answer()
+async def callback_delete_card_confirm(callback: CallbackQuery) -> None:
+    _, card_id = callback.data.split(":")
+    await callback.message.edit_text("❓ Haqiqatan ham ushbu kartani o'chirib tashlamoqchimisiz?", 
+                                      reply_markup=confirm_card_delete_keyboard(int(card_id)))
 
 
 @user_router.callback_query(F.data.startswith("card_del_yes:"))
-async def delete_card_confirmed(callback: CallbackQuery) -> None:
-    _, card_id_str = callback.data.split(":", maxsplit=1)
-    success = db.delete_card(int(card_id_str), callback.from_user.id)
-
-    if success:
-        await callback.message.edit_text("✅ Karta muvaffaqiyatli o'chirildi.")
+async def callback_delete_card_yes(callback: CallbackQuery) -> None:
+    _, card_id = callback.data.split(":")
+    if db.delete_card(int(card_id), callback.from_user.id):
+        await callback.answer("🗑 Karta muvaffaqiyatli o'chirildi!")
     else:
-        await callback.message.edit_text("⚠️ Karta topilmadi yoki allaqachon o'chirilgan.")
-    await callback.answer()
+        await callback.answer("⚠️ Karta topilmadi!")
+    cards = db.get_cards(callback.from_user.id)
+    await callback.message.edit_text("💳 Kartalar ro'yxati yangilandi:", reply_markup=cards_list_keyboard(cards))
 
 
 @user_router.callback_query(F.data == "card_del_no")
-async def delete_card_cancelled(callback: CallbackQuery) -> None:
-    await callback.message.edit_text("🚫 O'chirish bekor qilindi.")
-    await callback.answer()
+async def callback_delete_card_no(callback: CallbackQuery) -> None:
+    cards = db.get_cards(callback.from_user.id)
+    await callback.message.edit_text("💳 Kartalar ro'yxati:", reply_markup=cards_list_keyboard(cards))
 
 
 # ------------------------------------------------------------------------
-# 7.7. SOZLAMALAR
+# 7.7. SOZLAMALAR BO'LIMI
 # ------------------------------------------------------------------------
 
 @user_router.message(F.text == "⚙️ Sozlamalar")
-async def show_settings(message: Message) -> None:
-    await message.answer("⚙️ <b>Sozlamalar</b>\n\nKerakli bo'limni tanlang:", reply_markup=settings_menu_keyboard())
+async def cmd_settings(message: Message) -> None:
+    await message.answer("⚙️ <b>Sozlamalar paneli:</b>\n\nKerakli amalni tanlang:", reply_markup=settings_menu_keyboard())
 
 
 @user_router.callback_query(F.data == "settings_edit_balance")
-async def start_edit_balance(callback: CallbackQuery, state: FSMContext) -> None:
+async def callback_settings_edit_balance(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(EditBalanceStates.entering_amount)
-    current = db.get_balance(callback.from_user.id)
-    await callback.message.answer(
-        f"✏️ Joriy balansingiz: <b>{format_money(current)}</b>\n\n"
-        "Yangi balans qiymatini kiriting (masalan: <code>500000</code>):",
-        reply_markup=cancel_keyboard(),
-    )
+    await callback.message.answer("📝 Yangi joriy balans summasini kiriting (so'mda):", reply_markup=cancel_keyboard())
     await callback.answer()
 
 
 @user_router.message(StateFilter(EditBalanceStates.entering_amount))
-async def process_edit_balance(message: Message, state: FSMContext) -> None:
-    raw = message.text.strip().replace(" ", "").replace(",", ".")
+async def process_settings_new_balance(message: Message, state: FSMContext) -> None:
+    raw = message.text.strip().replace(" ", "")
     try:
-        new_balance = float(raw)
+        amount = float(raw)
     except ValueError:
-        await message.answer("⚠️ Noto'g'ri format. Faqat son kiriting, masalan: <code>500000</code>")
+        await message.answer("⚠️ Faqat son kiriting:")
         return
 
     user_id = message.from_user.id
-    current = db.get_balance(user_id)
-    db.update_balance(user_id, new_balance - current)
+    db.set_balance(user_id, amount)
     await state.clear()
-
-    await message.answer(
-        f"✅ Balans yangilandi: <b>{format_money(new_balance)}</b>",
-        reply_markup=main_menu_keyboard(user_id),
-    )
+    await message.answer(f"✅ Balans muvaffaqiyatli yangilandi!\n💰 Yangi balans: <b>{format_money(amount)}</b>", reply_markup=main_menu_keyboard(user_id))
 
 
 @user_router.callback_query(F.data == "settings_clear_history")
-async def confirm_clear_history(callback: CallbackQuery) -> None:
-    await callback.message.answer(
-        "❓ Barcha tranzaksiyalar tarixini butunlay o'chirishni tasdiqlaysizmi?\n"
-        "⚠️ Bu amalni ortga qaytarib bo'lmaydi!",
-        reply_markup=confirm_clear_history_keyboard(),
-    )
-    await callback.answer()
+async def callback_clear_history_ask(callback: CallbackQuery) -> None:
+    await callback.message.edit_text("⚠️ <b>DIQQAT!</b> Barcha tranzaksiyalar tarixi o'chib ketadi va balans 0 ga tushadi. Rozimisiz?", reply_markup=confirm_clear_history_keyboard())
 
 
 @user_router.callback_query(F.data == "clear_history_yes")
-async def clear_history_confirmed(callback: CallbackQuery) -> None:
-    user_id = callback.from_user.id
-    with closing(sqlite3.connect(DB_PATH)) as conn, conn:
-        conn.execute("DELETE FROM transactions WHERE user_id = ?;", (user_id,))
-        conn.execute("UPDATE users SET balance = 0 WHERE user_id = ?;", (user_id,))
-    await callback.message.edit_text("✅ Barcha tranzaksiyalar tarixi tozalandi va balans nolga tushirildi.")
-    await callback.answer()
+async def callback_clear_history_yes(callback: CallbackQuery) -> None:
+    db.clear_user_history(callback.from_user.id)
+    await callback.message.edit_text("🗑 Barcha tarixingiz muvaffaqiyatli tozalandi!")
 
 
 @user_router.callback_query(F.data == "clear_history_no")
-async def clear_history_cancelled(callback: CallbackQuery) -> None:
-    await callback.message.edit_text("🚫 Bekor qilindi. Ma'lumotlaringiz saqlanib qoldi.")
-    await callback.answer()
+async def callback_clear_history_no(callback: CallbackQuery) -> None:
+    await callback.message.edit_text("⚙️ Amaliyot bekor qilindi.", reply_markup=settings_menu_keyboard())
 
 
 # ==============================================================================
-# 8. ADMIN PANEL
+# 8. ADMIN ROUTER / ADMIN PANEL
 # ==============================================================================
 
-def _is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
+@admin_router.message(F.text == "🛠 Admin Panel", F.from_user.id.in_(ADMIN_IDS))
+async def cmd_admin_panel(message: Message) -> None:
+    await message.answer("🛠 <b>Hamyonim — Admin boshqaruv paneli:</b>", reply_markup=admin_panel_keyboard())
 
 
-@admin_router.message(F.text == "🛠 Admin Panel")
-async def show_admin_panel(message: Message) -> None:
-    if not _is_admin(message.from_user.id):
-        return
-    await message.answer("🛠 <b>Admin Panel</b>\n\nKerakli bo'limni tanlang:", reply_markup=admin_panel_keyboard())
-
-
-@admin_router.callback_query(F.data == "admin_stats")
-async def show_admin_stats(callback: CallbackQuery) -> None:
-    if not _is_admin(callback.from_user.id):
-        await callback.answer("⛔ Sizda ruxsat yo'q.", show_alert=True)
-        return
-
+@admin_router.callback_query(F.data == "admin_stats", F.from_user.id.in_(ADMIN_IDS))
+async def callback_admin_stats(callback: CallbackQuery) -> None:
     stats = db.get_global_stats()
     active_today = db.count_active_users_today()
-
     text = (
-        "📊 <b>Umumiy statistika</b>\n\n"
-        f"👥 Jami foydalanuvchilar: <b>{stats['total_users']}</b>\n"
-        f"🟢 Bugun faol bo'lganlar: <b>{active_today}</b>\n"
-        f"🚫 Bloklanganlar: <b>{stats['blocked_users']}</b>\n\n"
-        f"🧾 Jami tranzaksiyalar: <b>{stats['total_transactions']}</b>\n"
-        f"💳 Jami kartalar: <b>{stats['total_cards']}</b>\n\n"
-        f"📥 Barcha foydalanuvchilar kirimi: <b>{format_money(stats['total_income'])}</b>\n"
-        f"📤 Barcha foydalanuvchilar chiqimi: <b>{format_money(stats['total_expense'])}</b>"
+        "📊 <b>Botning umumiy ko'rsatkichlari:</b>\n\n"
+        f"👥 Jami foydalanuvchilar: {stats['total_users']} ta\n"
+        f"🚫 Bloklanganlar: {stats['blocked_users']} ta\n"
+        f"⚡️ Bugun aktiv bo'lganlar: {active_today} ta\n"
+        f"💳 Saqlangan jami kartalar: {stats['total_cards']} ta\n\n"
+        f"🧾 Jami operatsiyalar: {stats['total_transactions']} ta\n"
+        f"📥 Tizimdagi jami kirim: {format_money(stats['total_income'])}\n"
+        f"📤 Tizimdagi jami chiqim: {format_money(stats['total_expense'])}"
     )
-    try:
-        await callback.message.edit_text(text, reply_markup=admin_panel_keyboard())
-    except TelegramAPIError:
-        await callback.message.answer(text, reply_markup=admin_panel_keyboard())
+    await callback.message.answer(text)
     await callback.answer()
 
 
-@admin_router.callback_query(F.data == "admin_broadcast")
-async def start_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
-    if not _is_admin(callback.from_user.id):
-        await callback.answer("⛔ Sizda ruxsat yo'q.", show_alert=True)
-        return
-
+@admin_router.callback_query(F.data == "admin_broadcast", F.from_user.id.in_(ADMIN_IDS))
+async def callback_admin_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(BroadcastStates.entering_message)
-    await callback.message.answer(
-        "📢 <b>Xabar tarqatish</b>\n\n"
-        "Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni kiriting:",
-        reply_markup=cancel_keyboard(),
-    )
+    await callback.message.answer("📢 Barcha foydalanuvchilarga yuboriladigan reklama/xabar matnini kiriting:", reply_markup=cancel_keyboard())
     await callback.answer()
 
 
-@admin_router.message(StateFilter(BroadcastStates.entering_message))
-async def process_broadcast_message(message: Message, state: FSMContext) -> None:
-    await state.update_data(broadcast_text=message.html_text or message.text)
+@admin_router.message(StateFilter(BroadcastStates.entering_message), F.from_user.id.in_(ADMIN_IDS))
+async def process_broadcast_text(message: Message, state: FSMContext) -> None:
+    await state.update_data(text=message.text)
     await state.set_state(BroadcastStates.confirming)
-
-    total_users = db.count_users()
-    await message.answer(
-        f"📋 <b>Xabar ko'rinishi:</b>\n\n{message.html_text or message.text}\n\n"
-        f"👥 Ushbu xabar <b>{total_users}</b> ta foydalanuvchiga yuboriladi. Tasdiqlaysizmi?",
-        reply_markup=broadcast_confirm_keyboard(),
-    )
+    await message.answer(f"❓ Quyidagi xabarni barcha foydalanuvchilarga tarqatishni tasdiqlaysizmi?\n\n{message.text}", reply_markup=broadcast_confirm_keyboard())
 
 
-@admin_router.callback_query(StateFilter(BroadcastStates.confirming), F.data == "broadcast_confirm")
-async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
+@admin_router.callback_query(StateFilter(BroadcastStates.confirming), F.data == "broadcast_confirm", F.from_user.id.in_(ADMIN_IDS))
+async def callback_broadcast_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
-    text = data.get("broadcast_text", "")
+    msg_text = data["text"]
     await state.clear()
-
-    await callback.message.edit_text("📤 Xabar tarqatish boshlandi, iltimos kuting...")
-    await callback.answer()
-
+    
+    await callback.message.edit_text("🚀 Xabar tarqatish boshlandi...")
     user_ids = db.get_all_user_ids(only_active=True)
-    sent, failed = 0, 0
-
-    for idx, uid in enumerate(user_ids, start=1):
+    
+    success, failed = 0, 0
+    for uid in user_ids:
         try:
-            await bot.send_message(uid, text)
-            sent += 1
+            await callback.bot.send_message(chat_id=uid, text=msg_text)
+            success += 1
         except TelegramForbiddenError:
             db.set_blocked(uid, True)
             failed += 1
-        except TelegramRetryAfter as e:
-            await asyncio.sleep(e.retry_after)
-            try:
-                await bot.send_message(uid, text)
-                sent += 1
-            except TelegramAPIError:
-                failed += 1
-        except TelegramAPIError as e:
-            logger.warning("Broadcast xatoligi (user_id=%s): %s", uid, e)
+        except TelegramAPIError:
             failed += 1
+        await asyncio.sleep(BROADCAST_DELAY_SECONDS)
 
-        if idx % USERS_PER_BROADCAST_BATCH == 0:
-            await asyncio.sleep(BROADCAST_DELAY_SECONDS * USERS_PER_BROADCAST_BATCH)
-        else:
-            await asyncio.sleep(BROADCAST_DELAY_SECONDS)
-
-    await callback.message.answer(
-        f"✅ <b>Xabar tarqatish yakunlandi!</b>\n\n"
-        f"📤 Yuborildi: {sent}\n"
-        f"❌ Muvaffaqiyatsiz: {failed}"
-    )
-    logger.info("Broadcast yakunlandi. Yuborildi: %s, Muvaffaqiyatsiz: %s", sent, failed)
+    await callback.message.answer(f"📢 <b>Xabar tarqatish yakunlandi:</b>\n\n✅ Muvaffaqiyatli yetkazildi: {success} ta\n❌ Yetkazilmadi (Bloklaganlar): {failed} ta")
 
 
-@admin_router.callback_query(StateFilter(BroadcastStates.confirming), F.data == "broadcast_cancel")
-async def cancel_broadcast(callback: CallbackQuery, state: FSMContext) -> None:
+@admin_router.callback_query(StateFilter(BroadcastStates.confirming), F.data == "broadcast_cancel", F.from_user.id.in_(ADMIN_IDS))
+async def callback_broadcast_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.edit_text("🚫 Xabar tarqatish bekor qilindi.")
-    await callback.answer()
-
-
-@admin_router.message(Command("stats"))
-async def cmd_admin_stats_shortcut(message: Message) -> None:
-    if not _is_admin(message.from_user.id):
-        return
-    stats = db.get_global_stats()
-    text = (
-        f"👥 Foydalanuvchilar: {stats['total_users']} | "
-        f"🧾 Tranzaksiyalar: {stats['total_transactions']} | "
-        f"💳 Kartalar: {stats['total_cards']}"
-    )
-    await message.answer(text)
+    await callback.message.edit_text("❌ Xabar tarqatish bekor qilindi.")
 
 
 # ==============================================================================
-# 9. MIDDLEWARE — LOGGING VA THROTTLING
-# ==============================================================================
-
-class LoggingMiddleware:
-    """Har bir kelgan xabar/callback ni logga yozadi."""
-
-    async def __call__(self, handler, event, data):
-        user = getattr(event, "from_user", None)
-        if user is not None:
-            logger.info(
-                "Kiruvchi event: user_id=%s, username=%s, type=%s",
-                user.id,
-                user.username,
-                type(event).__name__,
-            )
-        return await handler(event, data)
-
-
-class ThrottlingMiddleware:
-    """
-    Foydalanuvchi juda tez-tez xabar yuborayotgan bo'lsa (flood),
-    uni vaqtincha cheklaydi.
-    """
-
-    def __init__(self, rate_limit: float = 0.4) -> None:
-        self.rate_limit = rate_limit
-        self._last_call: dict[int, datetime] = {}
-
-    async def __call__(self, handler, event, data):
-        user = getattr(event, "from_user", None)
-        if user is not None:
-            now = datetime.now()
-            last = self._last_call.get(user.id)
-            if last is not None and (now - last).total_seconds() < self.rate_limit:
-                return  # Xabarni e'tiborsiz qoldiramiz (flood himoyasi)
-            self._last_call[user.id] = now
-        return await handler(event, data)
-
-
-# ==============================================================================
-# 10. FALLBACK HANDLER (Tushunilmagan xabarlar uchun)
-# ==============================================================================
-
-@user_router.message(StateFilter(None))
-async def fallback_handler(message: Message) -> None:
-    """Hech qaysi handlerga mos kelmagan xabarlar uchun."""
-    if not db.user_exists(message.from_user.id):
-        db.add_user(message.from_user.id, message.from_user.username, message.from_user.full_name)
-
-    await message.answer(
-        "❓ Kechirasiz, buyruqni tushunmadim.\n"
-        "Iltimos, quyidagi menyudan foydalaning yoki /help buyrug'ini yuboring.",
-        reply_markup=main_menu_keyboard(message.from_user.id),
-    )
-
-
-# ==============================================================================
-# 11. BOT BUYRUQLARI RO'YXATI (Telegram menyusi uchun)
-# ==============================================================================
-
-async def set_bot_commands(bot: Bot) -> None:
-    commands = [
-        BotCommand(command="start", description="Botni ishga tushirish"),
-        BotCommand(command="balans", description="Joriy balansni ko'rish"),
-        BotCommand(command="help", description="Yordam"),
-        BotCommand(command="cancel", description="Joriy amalni bekor qilish"),
-    ]
-    await bot.set_my_commands(commands)
-
-
-# ==============================================================================
-# 12. DASTURNI ISHGA TUSHIRISH (ENTRY POINT)
+# 9. ASOSIY ISHGA TUSHIRISH (MAIN RUNNER)
 # ==============================================================================
 
 async def main() -> None:
-    if BOT_TOKEN == "PUT_YOUR_BOT_TOKEN_HERE":
-        logger.error("BOT_TOKEN sozlanmagan! HAMYONIM_BOT_TOKEN muhit o'zgaruvchisini o'rnating.")
-        sys.exit(1)
-
-    bot = Bot(
-        token=BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    bot = Bot(token=BOT_TOKEN, properties=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage())
 
-    # Middleware larni ulash
-    dp.message.middleware(ThrottlingMiddleware(rate_limit=0.3))
-    dp.message.middleware(LoggingMiddleware())
-    dp.callback_query.middleware(LoggingMiddleware())
-
-    # Routerlarni ulash (admin_router avval, aniqroq filtrlar birinchi ishlaydi)
+    # Routerlarni ulash
     dp.include_router(admin_router)
     dp.include_router(user_router)
 
-    await set_bot_commands(bot)
+    # Bot menyusiga buyruqlarni o'rnatish
+    commands = [
+        BotCommand(command="start", description="Botni ishga tushirish"),
+        BotCommand(command="help", description="Yordam sahifasi"),
+        BotCommand(command="balans", description="Balansni ko'rish"),
+        BotCommand(command="cancel", description="Amalni bekor qilish"),
+    ]
+    await bot.set_my_commands(commands)
 
-    logger.info("=" * 60)
-    logger.info("HAMYONIM BOTI ISHGA TUSHMOQDA...")
-    logger.info("Adminlar soni: %s", len(ADMIN_IDS))
-    logger.info("=" * 60)
-
+    logger.info("Bot poling rejimida muvaffaqiyatli ishga tushdi...")
     try:
-        await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         await bot.session.close()
-        logger.info("Bot to'xtatildi.")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Bot foydalanuvchi tomonidan to'xtatildi.")
+        logger.info("Bot muvaffaqiyatli to'xtatildi.")
