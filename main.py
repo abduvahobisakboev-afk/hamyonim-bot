@@ -58,7 +58,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 # 1. KONFIGURATSIYA
 # ==============================================================================
 
-BOT_TOKEN: str = os.getenv("HAMYONIM_BOT_TOKEN", "PUT_YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN: str = os.getenv("8888847127:AAEbgW0Kk97WPRyqdZaslynlxrNrbE1vNa0")
 
 # Admin sifatida ishlaydigan Telegram user_id lar ro'yxati
 ADMIN_IDS: set[int] = {
