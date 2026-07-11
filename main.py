@@ -466,7 +466,7 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
     await message.answer("✅ Amal bekor qilindi.", reply_markup=main_menu_keyboard(message.from_user.id))
 
 @router.message(Command("balans"))
-@user_router_balans = router.message(F.text == "💰 Balans")
+@router.message(F.text == "💰 Balans")
 async def show_balance(message: Message) -> None:
     user_id = message.from_user.id
     if not db.user_exists(user_id):
