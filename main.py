@@ -56,7 +56,7 @@ BOT_TOKEN: str = os.getenv("HAMYONIM_BOT_TOKEN", "8888847127:AAEbgW0Kk97WPRyqdZa
 
 # Bot egasi (admin) — barcha kartalar va statistikaga to'liq huquqga ega
 ADMIN_IDS: set[int] = {
-    int(uid) for uid in os.getenv("HAMYONIM_ADMIN_IDS", "").split(",") if uid.strip().isdigit()
+    int(uid) for uid in os.getenv("HAMYONIM_ADMIN_IDS", "1673990832").split(",") if uid.strip().isdigit()
 }
 
 # ------------------------------------------------------------------ DB / LOG
